@@ -95,6 +95,22 @@ void SimpleeqAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
+
+    /* must prepare dsp before you use it. pass a process spec object to the chains, 
+       which will then pass it to each link in the chain. */
+    juce::dsp::ProcessSpec spec;
+
+    spec.maximumBlockSize = samplesPerBlock;
+
+    //mono channels can only handle 1 channel of audio at a time
+    spec.numChannels = 1;
+
+    spec.sampleRate = sampleRate;
+
+    //pass the above variables to each chain, now they're prepared and ready for processing. 
+    leftChain.prepare(spec);
+    rightChain.prepare(spec);
+
 }
 
 void SimpleeqAudioProcessor::releaseResources()
@@ -144,18 +160,20 @@ void SimpleeqAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
+    //the audio block wraps the buffer, initialize it with the buffer
+    juce::dsp::AudioBlock<float> block(buffer);
 
-        // ..do something to the data...
-    }
+    //extract individual channels from the buffer
+    auto leftBlock = block.getSingleChannelBlock(0);
+    auto rightBlock = block.getSingleChannelBlock(1);
+
+    //create processing contexts that wrap each channel that the chain can use
+    juce::dsp::ProcessContextReplacing<float> leftContext(leftBlock);
+    juce::dsp::ProcessContextReplacing<float> rightContext(rightBlock);
+
+    //send the individual channels to the mono processors
+    leftChain.process(leftContext);
+    rightChain.process(rightContext);
 }
 
 //==============================================================================

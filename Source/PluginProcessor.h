@@ -57,6 +57,21 @@ public:
     juce::AudioProcessorValueTreeState apvts{ *this, nullptr, "Parameters", createParameterLayout()};
 
 private:
+
+    /* create alias names for commonly used functions in our dsp since juce has deep 
+       nested stuff and it'll get ugly. */
+    using Filter = juce::dsp::IIR::Filter<float>;
+
+    /* using the juce processing chain we'll put four of these filters in a processor 
+       chain which will allow it to process a single context and all of the audio automatically.*/
+    using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
+
+    // Mono Chain: Lowcut -> Parametric -> HighCut
+    using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
+
+    // need two instances of mono chain to have stereo processing
+    MonoChain leftChain, rightChain;
+
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SimpleeqAudioProcessor)
 };
